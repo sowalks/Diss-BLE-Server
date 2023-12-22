@@ -1,0 +1,8 @@
+#app.yaml
+runtime: python39
+
+env_variables:
+  CLOUD_SQL_USERNAME: ble-database-0
+  CLOUD_SQL_PASSWORD: RoI&Q/TYyic7ru$
+  CLOUD_SQL_DATABASE_NAME: testing
+  CLOUD_SQL_CONNECTION_NAME: ble-diss-project:europe-west2:ble-database-0
