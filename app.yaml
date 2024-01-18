@@ -2,7 +2,16 @@
 runtime: python39
 
 env_variables:
-  CLOUD_SQL_USERNAME: ble-database-0
-  CLOUD_SQL_PASSWORD: RoI&Q/TYyic7ru$
-  CLOUD_SQL_DATABASE_NAME: testing
-  CLOUD_SQL_CONNECTION_NAME: ble-diss-project:europe-west2:ble-database-0
+  MYSQL_USERNAME: sw
+  MYSQL_PASSWORD: RoI&Q/TYyic7ru$
+  MYSQL_DATABASE_NAME: tag_tracking
+  MYSQL_CONNECTION_NAME: bles
+
+
+#PRODUCTION CLOUD VARIABLES
+ # MYSQL_USERNAME: ble-database-0
+  #MYSQL_PASSWORD: RoI&Q/TYyic7ru$
+  #MYSQL_DATABASE_NAME: testing
+ # MYSQL_CONNECTION_NAME: ble-diss-project:europe-west2:ble-database-0
+  
+
