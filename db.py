@@ -1,8 +1,13 @@
 # db.py
-import os
 import pymysql
-from flask import jsonify
 from connections import open_connection
+
+
+def get_tag_id(tag):
+    tid = existing_tag_id(tag)
+    if tid is None:
+        tid = generate_tag_id(tag)
+    return tid
 
 
 def generate_device_id():
@@ -29,10 +34,11 @@ def generate_tag_id(tag):
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
-            cursor.execute('INSERT INTO Tag (UUID, Major, Minor) VALUES(%s, %s, %s)', (tag["UUID"], tag["Major"],
-                                                                                       tag["Minor"]))
-            tag_id = cursor.lastrowid
+            cursor.execute('INSERT INTO Tag (UUID, Major, Minor) VALUES(%s, %s, %s)', (tag["uuid"], tag["major"],
+                                                                                       tag["minor"]))
             conn.commit()
+            tag_id = cursor.lastrowid
+
         except pymysql.Error as e:
             print(e)
             tag_id = -1
@@ -68,12 +74,12 @@ def get_last_unblocked_locations(device_id):
     return locations
 
 
-def get_tagid(tag):
+def existing_tag_id(tag):
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
             result = cursor.execute('SELECT TagID FROM Tag WHERE UUID = %s AND Major = %s  AND Minor = %s ;',
-                                    (tag['UUID'], tag["Major"], tag["Minor"]))
+                                    (tag['uuid'], tag["major"], tag["minor"]))
             if result > 0:
                 tag_id = cursor.fetchone()[0]
             else:
@@ -86,40 +92,48 @@ def get_tagid(tag):
     return tag_id
 
 
-def register_tag(tag_id, device_id, tag_mode):
+def register_tag(reg):
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
+            tid = get_tag_id(reg['tag'])
             cursor.execute('INSERT INTO Registration(TagID,DeviceID,Mode) VALUES(%s, %s, %s)',
-                           (tag_id, device_id, tag_mode))
+                           (tid, reg['device_id'], reg['mode']))
             conn.commit()
         except pymysql.IntegrityError as i:
             # this is to let app know if the error was a duplicate or
             # if it has been already registered.
+            if str(i).startswith('(1062,'):
+                print(i)
+                return -2
             print(i)
-            return str(i)
+            return -1
         except pymysql.Error as e:
             print(e)
             return -1
         finally:
             conn.close()
-    return 0
+    return tid
 
 
-def store_location_log(log):
+def store_location_log(entry):
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
             cursor.execute(
                 'INSERT INTO LocationHistory (Time,TagID,Distance,DevicePosition,Blocked) VALUES(%s, %s, %s, '
                 'Point(%s,%s), 0)',
-                (log["time"], log["tag_id"], log["distance"], log["device_position"]["longitude"],log["device_position"]["latitude"]))
+                (entry["time"], get_tag_id(entry['tag']), entry["distance"], entry["device_position"]["longitude"],
+                 entry["device_position"]["latitude"]))
             conn.commit()
         except pymysql.IntegrityError as i:
             # this is to let app know if there is a duplicate
             # if the log has already been stored
+            if str(i).startswith('(1062,'):
+                return -2
+
             print(i)
-            return str(i)
+            return -1
         except pymysql.Error as e:
             print(e)
             return -1

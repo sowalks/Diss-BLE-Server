@@ -1,57 +1,49 @@
-# main.py
-import db
-from schema import LocationSchema, TagSchema, RegistrationSchema
+from db import store_location_log, register_tag, get_last_unblocked_locations, generate_device_id
+from schema import LocationSchema, LocationListSchema, TagSchema, RegistrationSchema
 from flask import Flask, jsonify, request
 from marshmallow import ValidationError
 
 app = Flask(__name__)
 
 
-@app.route('/device')
-def generate_devid_test():
-    device_id = db.generate_device_id()
-    return jsonify(device_id)
-
-
-@app.route('/tag', methods=['POST'])
-def generate_tagid_test():
+@app.route('/locations', methods=['POST'])
+def find_recent_locations():
+    # gets most recent unblocked location
+    # of every tag registered to device
+    # returns -1/error, message/no locations, results/allentries
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
-    try:
-        tag = TagSchema().load(request.json)
-    except ValidationError as err:
-        return str(err), 400
-    tag_id = db.generate_tag_id(tag)
-    return jsonify(tag_id=tag_id)
-
-
-@app.route('/find', methods=['POST'])
-def locate_tags_test():
-    if not request.is_json:
-        return jsonify({"msg": "Missing JSON in request"}), 400
-    result = db.get_last_unblocked_locations(request.json.get('device_id'))
+    result = get_last_unblocked_locations(request.json.get('device_id'))
     if result == -1:
         return jsonify({"msg": "Database Error for Locating Tags"}), 400
     if result == 'No Recent Locations':
-        return jsonify(result)
-    print(result)
-    return LocationSchema().load(data=result, many=True)
+        return jsonify({"msg": result})
+    # return location list with tag_id not full tag fields
+    return LocationListSchema(exclude=('entries.tag',)).load({'entries': result})
 
 
-@app.route('/tagid', methods=['POST'])
-def tagid_test():
-    if request.method == 'POST':
-        if not request.is_json:
-            return jsonify({"msg": "Missing JSON in request"}), 400
-        try:
-            tag = TagSchema().load(request.json)
-        except ValidationError as err:
-            return str(err), 400
-        return jsonify(tagid=db.get_tagid(tag))
+@app.route('/log', methods=['POST'])
+def store_log():
+    # store log of location entries.
+    # returns success/0, duplicate/-2, or error/-1,
+    # so we know what was successful & what needs to be resent.
+    if not request.is_json:
+        return jsonify({"msg": "Missing JSON in request"}), 400
+    try:
+        # load location with all tag fields
+        log = LocationListSchema(exclude=('entries.tag_id',)).load(request.json)
+    except ValidationError as err:
+        print(err)
+        return jsonify({"msg": str(err)}), 400
+    results = []
+    for entry in log['entries']:
+        results.append(store_location_log(entry))
+    return jsonify(status=results)
 
 
 @app.route('/registration', methods=['POST'])
-def registration_test():
+# register a tag to a device, so it can be located by them
+def register():
     if request.method == 'POST':
         if not request.is_json:
             return jsonify({"msg": "Missing JSON in request"}), 400
@@ -59,19 +51,17 @@ def registration_test():
             r = RegistrationSchema().load(request.json)
         except ValidationError as err:
             return str(err), 400
-        return jsonify(status=db.register_tag(r['tag_id'], r['device_id'], r['mode']))
+        # return status error, already registered or tag_id
+        return jsonify(status=register_tag(r))
 
 
-@app.route('/log', methods=['POST'])
-def store_log_test():
-    if request.method == 'POST':
-        if not request.is_json:
-            return jsonify({"msg": "Missing JSON in request"}), 400
-        try:
-            log = LocationSchema().load(request.json)
-        except ValidationError as err:
-            return str(err), 400
-        return jsonify(status=db.store_location_log(log))
+@app.route('/device')
+def get_device_id():
+    # generate device id to be able to register & locate
+    # tags. This is not the focus of the project, it is a placeholder
+    # for a general secure login or identifying a device.
+    device_id = generate_device_id()
+    return jsonify(device_id)
 
 
 if __name__ == '__main__':
