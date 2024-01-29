@@ -1,4 +1,6 @@
 # db.py
+from struct import pack, unpack
+
 import pymysql
 from connections import open_connection
 
@@ -8,6 +10,10 @@ def get_tag_id(tag):
     if tid is None:
         tid = generate_tag_id(tag)
     return tid
+
+
+def to_bytes(field):
+    return pack('H', field)
 
 
 def generate_device_id():
@@ -34,8 +40,10 @@ def generate_tag_id(tag):
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
-            cursor.execute('INSERT INTO Tag (UUID, Major, Minor) VALUES(%s, %s, %s)', (tag["uuid"], tag["major"],
-                                                                                       tag["minor"]))
+            cursor.execute('INSERT INTO Tag (UUID, Major, Minor) VALUES(%s, %s, %s)',
+                           (tag["uuid"].bytes,
+                            to_bytes(tag["major"]),
+                            to_bytes(tag["minor"])))
             conn.commit()
             tag_id = cursor.lastrowid
 
@@ -61,8 +69,9 @@ def get_last_unblocked_locations(device_id):
             if result > 0:
                 locations = []
                 for r in recent:
-                    locations.append({"time": str(r[0]), "tag_id": r[1], "distance": r[2],
+                    locations.append({"time": r[0], "tag_id": r[1], "distance": r[2],
                                       "device_position": {"longitude": r[3], "latitude": r[4]}})
+
             else:
                 locations = 'No Recent Locations'
 
@@ -79,7 +88,8 @@ def existing_tag_id(tag):
     with conn.cursor() as cursor:
         try:
             result = cursor.execute('SELECT TagID FROM Tag WHERE UUID = %s AND Major = %s  AND Minor = %s ;',
-                                    (tag['uuid'], tag["major"], tag["minor"]))
+                                    (tag['uuid'].bytes, to_bytes(tag["major"]),
+                                     to_bytes(tag["minor"])))
             if result > 0:
                 tag_id = cursor.fetchone()[0]
             else:

@@ -19,7 +19,7 @@ def find_recent_locations():
     if result == 'No Recent Locations':
         return jsonify({"msg": result})
     # return location list with tag_id not full tag fields
-    return LocationListSchema(exclude=('entries.tag',)).load({'entries': result})
+    return LocationListSchema(exclude=('entries.tag',)).dump({'entries': result})
 
 
 @app.route('/log', methods=['POST'])
@@ -61,7 +61,7 @@ def get_device_id():
     # tags. This is not the focus of the project, it is a placeholder
     # for a general secure login or identifying a device.
     device_id = generate_device_id()
-    return jsonify(device_id)
+    return jsonify(device_id=device_id)
 
 
 if __name__ == '__main__':

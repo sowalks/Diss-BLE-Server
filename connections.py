@@ -8,7 +8,8 @@ db_connection_name = os.environ.get('MYSQL_CONNECTION_NAME')
 
 def open_connection():
     try:
-        conn = pymysql.connect(host='127.0.0.1', user='sw', password='RoI&Q/TYyic7ru$', db='tag_tracking')
+        conn = pymysql.connect(host='127.0.0.1', user='sw', password='RoI&Q/TYyic7ru$', db='tag_tracking',
+                               )
     except pymysql.MySQLError as e:
         print(e)
     return conn

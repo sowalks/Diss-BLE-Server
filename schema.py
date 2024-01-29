@@ -1,5 +1,7 @@
 import datetime as dt
-from marshmallow import Schema, fields
+import struct
+
+from marshmallow import Schema, fields, validate
 
 
 class PositionSchema(Schema):
@@ -8,9 +10,10 @@ class PositionSchema(Schema):
 
 
 class TagSchema(Schema):
-    uuid = fields.Int(required=True)
-    major = fields.Int(required=True)
-    minor = fields.Int(required=True)
+    uuid = fields.UUID(required=True)
+    # converts the unsigned shorts (H) into byte strings
+    major = fields.Int(validate=validate.Range(0, 65535), required=True)
+    minor = fields.Int(validate=validate.Range(0, 65535), required=True)
 
 
 class LocationSchema(Schema):
