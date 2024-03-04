@@ -17,7 +17,7 @@ def find_recent_locations():
     if result == -1:
         return jsonify({"msg": "Database Error for Locating Tags"}), 400
     if result == 'No Recent Locations':
-        return jsonify({"msg": result})
+        return jsonify({"entries": []})
     # return location list with tag_id not full tag fields
     return LocationListSchema(exclude=('entries.tag',)).dump({'entries': result})
 
@@ -65,4 +65,5 @@ def get_device_id():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, ssl_context=('cert.pem', 'key.pem'))
+
