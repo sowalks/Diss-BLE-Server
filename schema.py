@@ -32,3 +32,9 @@ class RegistrationSchema(Schema):
     tag = fields.Nested(TagSchema(), required=True)
     device_id = fields.Int(required=True)
     mode = fields.Bool(truthy={True}, falsy={False}, required=True)
+
+
+class UpdateSchema(Schema):
+    tag_id = fields.Int(required=True)
+    device_id = fields.Int(required=True)
+    mode = fields.Bool(truthy={True}, falsy={False}, required=True)

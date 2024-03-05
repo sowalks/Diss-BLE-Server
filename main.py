@@ -1,5 +1,5 @@
-from db import store_location_log, register_tag, get_last_unblocked_locations, generate_device_id
-from schema import LocationSchema, LocationListSchema, TagSchema, RegistrationSchema
+from db import store_location_log, register_tag, get_last_unblocked_locations, generate_device_id, set_mode
+from schema import LocationSchema, LocationListSchema, TagSchema, RegistrationSchema, UpdateSchema
 from flask import Flask, jsonify, request
 from marshmallow import ValidationError
 
@@ -64,6 +64,18 @@ def get_device_id():
     return jsonify(device_id=device_id)
 
 
-if __name__ == '__main__':
-    app.run(debug=True, ssl_context=('cert.pem', 'key.pem'))
+@app.route('/setmode', methods=['PUT'])
+def set_tag_mode():
+    if request.method == 'PUT':
+        if not request.is_json:
+            return jsonify({"msg": "Missing JSON in request"}), 400
+        try:
+            update = UpdateSchema().load(request.json)
+        except ValidationError as err:
+            return str(err), 400
+        # return status error or mode set /error(invalid uuids,server,etc)
+        return jsonify(status=set_mode(update))
 
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', ssl_context=('cert.pem', 'key.pem'))

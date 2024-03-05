@@ -125,6 +125,20 @@ def register_tag(reg):
             conn.close()
     return tid
 
+def set_mode(update):
+    conn = open_connection()
+    with conn.cursor() as cursor:
+        try:
+            cursor.execute('UPDATE Registration SET Mode = %s WHERE TagID = %s AND DeviceID = %s ',
+                           (update['mode'], update['tag_id'], update['device_id']))
+            conn.commit()
+        except pymysql.Error as e:
+            print(e)
+            return -1
+        finally:
+            conn.close()
+    return update['mode']
+
 
 def store_location_log(entry):
     conn = open_connection()
