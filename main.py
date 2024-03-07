@@ -64,7 +64,7 @@ def get_device_id():
     return jsonify(device_id=device_id)
 
 
-@app.route('/setmode', methods=['PUT'])
+@app.route('/set-mode', methods=['PUT'])
 def set_tag_mode():
     if request.method == 'PUT':
         if not request.is_json:

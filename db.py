@@ -125,6 +125,7 @@ def register_tag(reg):
             conn.close()
     return tid
 
+
 def set_mode(update):
     conn = open_connection()
     with conn.cursor() as cursor:
@@ -137,7 +138,7 @@ def set_mode(update):
             return -1
         finally:
             conn.close()
-    return update['mode']
+    return int(update['mode'])
 
 
 def store_location_log(entry):
@@ -145,7 +146,7 @@ def store_location_log(entry):
     with conn.cursor() as cursor:
         try:
             cursor.execute(
-                'INSERT INTO LocationHistory (Time,TagID,Distance,DevicePosition,Blocked) VALUES(%s, %s, %s, '
+                'INSERT INTO LocationHistory (Time,TagID,Distance,DevicePosition,Blocked,DeviceID) VALUES(%s, %s, %s, '
                 'Point(%s,%s), 0)',
                 (entry["time"], get_tag_id(entry['tag']), entry["distance"], entry["device_position"]["longitude"],
                  entry["device_position"]["latitude"]))
