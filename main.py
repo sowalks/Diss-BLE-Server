@@ -1,4 +1,5 @@
-from db import store_location_log, register_tag, get_last_unblocked_locations, generate_device_id, set_mode
+from db import store_location_log, register_tag, get_last_unblocked_locations, generate_device_id, set_mode, get_tag_id, \
+    is_inhibited
 from schema import LocationSchema, LocationListSchema, TagSchema, RegistrationSchema, UpdateSchema
 from flask import Flask, jsonify, request
 from marshmallow import ValidationError
@@ -15,8 +16,10 @@ def find_recent_locations():
         return jsonify({"msg": "Missing JSON in request"}), 400
     result = get_last_unblocked_locations(request.json.get('device_id'))
     if result == -1:
+        app.logger.error("locating error")
         return jsonify({"msg": "Database Error for Locating Tags"}), 400
     if result == 'No Recent Locations':
+        app.logger.info(result)
         return jsonify({"entries": []})
     # return location list with tag_id not full tag fields
     return LocationListSchema(exclude=('entries.tag',)).dump({'entries': result})
@@ -33,11 +36,15 @@ def store_log():
         # load location with all tag fields
         log = LocationListSchema(exclude=('entries.tag_id',)).load(request.json)
     except ValidationError as err:
-        print(err)
+        app.logger.error("Store Log ValidationError:" + str(err))
         return jsonify({"msg": str(err)}), 400
-    results = []
-    for entry in log['entries']:
-        results.append(store_location_log(entry))
+
+    tag_ids = [get_tag_id(entry['tag']) for entry in log['entries']]
+    blocked = is_inhibited(tag_ids)
+    if blocked == -1:
+        return jsonify({"msg": "Error detecting inhibited"}), 400
+    results = [store_location_log(entry, blocked, tag_id) for entry, tag_id in zip(log['entries'], tag_ids)]
+    app.logger.info("Successful Log: length " + str(len(results)) + " Blocked : " + str(blocked))
     return jsonify(status=results)
 
 

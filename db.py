@@ -3,6 +3,9 @@ from struct import pack, unpack
 
 import pymysql
 from connections import open_connection
+import logging
+
+log = logging.getLogger('database')
 
 
 def get_tag_id(tag):
@@ -25,9 +28,10 @@ def generate_device_id():
             # lastrowid is safe to use,no race condtiions because I am not
             # sharing a connection object
             device_id = cursor.lastrowid
+            log.info("device id generated: " + str(device_id))
             conn.commit()
         except pymysql.Error as e:
-            print(e)
+            log.error("Error Generating Device ID: " + str(e))
             # if db fails we can try again based on device id
             device_id = -1
         finally:
@@ -46,9 +50,9 @@ def generate_tag_id(tag):
                             to_bytes(tag["minor"])))
             conn.commit()
             tag_id = cursor.lastrowid
-
+            log.error("tagid generated: " + str(tag_id))
         except pymysql.Error as e:
-            print(e)
+            log.error("Error Generating TagID: " + str(e))
             tag_id = -1
         finally:
             conn.close()
@@ -74,9 +78,8 @@ def get_last_unblocked_locations(device_id):
 
             else:
                 locations = 'No Recent Locations'
-
         except pymysql.Error as e:
-            print(e)
+            log.error("Error Getting Locations: " + str(e))
             locations = -1
         finally:
             conn.close()
@@ -95,7 +98,7 @@ def existing_tag_id(tag):
             else:
                 tag_id = None
         except pymysql.Error as e:
-            print(e)
+            log.error("Check tag exists: " + str(e))
             tag_id = -1
         finally:
             conn.close()
@@ -110,16 +113,17 @@ def register_tag(reg):
             cursor.execute('INSERT INTO Registration(TagID,DeviceID,Mode) VALUES(%s, %s, %s)',
                            (tid, reg['device_id'], reg['mode']))
             conn.commit()
+            log.info("Tag Registered - id:" + str(tid))
         except pymysql.IntegrityError as i:
             # this is to let app know if the error was a duplicate or
             # if it has been already registered.
             if str(i).startswith('(1062,'):
-                print(i)
+                log.warning("Duplicate Tag Registration: " + str(i))
                 return -2
-            print(i)
+            log.error("Error Registering: " + str(i))
             return -1
         except pymysql.Error as e:
-            print(e)
+            log.error("Error Registering: " + str(e))
             return -1
         finally:
             conn.close()
@@ -130,38 +134,83 @@ def set_mode(update):
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
-            cursor.execute('UPDATE Registration SET Mode = %s WHERE TagID = %s AND DeviceID = %s ',
-                           (update['mode'], update['tag_id'], update['device_id']))
+            result = cursor.execute('UPDATE Registration SET Mode = %s WHERE TagID = %s AND DeviceID = %s ',
+                                    (update['mode'], update['tag_id'], update['device_id']))
             conn.commit()
+            # result returns rows affected.
+            # check if valid to same mode, or invalid ids
+            if result == 0:
+                cursor.execute('SELECT COUNT(*) FROM Registration WHERE TagID = %s AND DeviceID = %s',
+                                         (update['tag_id'], update['device_id']))
+                not_valid = cursor.fetchone()[0]
+                if not_valid == 0:
+                    log.error("Incorrect IDs")
+                    return -1
+                log.info("Duplicate Set Mode")
         except pymysql.Error as e:
-            print(e)
+            log.error("Set Mode Error: " + str(e))
             return -1
         finally:
             conn.close()
     return int(update['mode'])
 
 
-def store_location_log(entry):
+def store_location_log(entry, blocked, tag_id):
+    print(blocked)
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
             cursor.execute(
-                'INSERT INTO LocationHistory (Time,TagID,Distance,DevicePosition,Blocked,DeviceID) VALUES(%s, %s, %s, '
-                'Point(%s,%s), 0)',
-                (entry["time"], get_tag_id(entry['tag']), entry["distance"], entry["device_position"]["longitude"],
-                 entry["device_position"]["latitude"]))
+                'INSERT INTO LocationHistory (Time,TagID,Distance,DevicePosition,Blocked) VALUES(%s, %s, %s, '
+                'Point(%s,%s), %s)',
+                (entry["time"], tag_id, entry["distance"], entry["device_position"]["longitude"],
+                 entry["device_position"]["latitude"], blocked))
             conn.commit()
+            log.info("Log Stored")
         except pymysql.IntegrityError as i:
             # this is to let app know if there is a duplicate
             # if the log has already been stored
             if str(i).startswith('(1062,'):
+                log.warning("Duplicate Location Log: " + str(i))
+                if blocked:
+                    return update_blocked_tag(entry['time'], tag_id, conn)
                 return -2
-
-            print(i)
+            log.error("Error Logging: " + str(i))
             return -1
         except pymysql.Error as e:
-            print(e)
+            log.error("Error Logging: " + str(e))
             return -1
         finally:
             conn.close()
+        return 0
+
+
+def is_inhibited(tag_ids):
+    conn = open_connection()
+    with conn.cursor() as cursor:
+        try:
+            placeholders = '%s,' * (len(tag_ids) - 1) + '%s'
+            cursor.execute(
+                'SELECT COUNT(*) FROM Registration WHERE TagID IN (' + placeholders + ') AND MODE = 0',
+                tuple(tag_ids))
+            result = cursor.fetchone()[0]
+        except pymysql.Error as e:
+            log.error("Inhibit Error: " + str(e))
+            return -1
+        finally:
+            conn.close()
+        return 1 if result > 0 else result
+
+
+def update_blocked_tag(time, tag_id, conn):
+    with conn.cursor() as cursor:
+        try:
+            cursor.execute(
+                'UPDATE LocationHistory SET Blocked = 1 WHERE Time = %s AND TagID = %s',
+                (time, tag_id))
+            conn.commit()
+            log.info("Log Stored")
+        except pymysql.Error as e:
+            log.error("Error Updating Duplicate: " + str(e))
+            return -1
         return 0
