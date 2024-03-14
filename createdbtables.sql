@@ -17,7 +17,7 @@ CREATE TABLE Device (
 CREATE TABLE LocationHistory (
     Time datetime  NOT NULL,
     TagID int  NOT NULL,
-    Distance int  NOT NULL,
+    Distance double  NOT NULL,
     DevicePosition point  NOT NULL,
     Blocked bool  NOT NULL,
     PRIMARY KEY (Time,TagID)

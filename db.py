@@ -1,5 +1,5 @@
 # db.py
-from struct import pack, unpack
+from struct import pack
 
 import pymysql
 from connections import open_connection
@@ -20,12 +20,11 @@ def to_bytes(field):
 
 
 def generate_device_id():
-    device_id = None
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
             cursor.execute('INSERT INTO Device (DeviceID) VALUES (0);')
-            # lastrowid is safe to use,no race condtiions because I am not
+            # lastrowid is safe to use,no race conditions because I am not
             # sharing a connection object
             device_id = cursor.lastrowid
             log.info("device id generated: " + str(device_id))
@@ -141,7 +140,7 @@ def set_mode(update):
             # check if valid to same mode, or invalid ids
             if result == 0:
                 cursor.execute('SELECT COUNT(*) FROM Registration WHERE TagID = %s AND DeviceID = %s',
-                                         (update['tag_id'], update['device_id']))
+                               (update['tag_id'], update['device_id']))
                 not_valid = cursor.fetchone()[0]
                 if not_valid == 0:
                     log.error("Incorrect IDs")
@@ -156,7 +155,6 @@ def set_mode(update):
 
 
 def store_location_log(entry, blocked, tag_id):
-    print(blocked)
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
@@ -209,7 +207,7 @@ def update_blocked_tag(time, tag_id, conn):
                 'UPDATE LocationHistory SET Blocked = 1 WHERE Time = %s AND TagID = %s',
                 (time, tag_id))
             conn.commit()
-            log.info("Log Stored")
+            log.warning("Log Stored")
         except pymysql.Error as e:
             log.error("Error Updating Duplicate: " + str(e))
             return -1

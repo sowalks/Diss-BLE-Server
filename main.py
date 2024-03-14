@@ -1,6 +1,6 @@
-from db import store_location_log, register_tag, get_last_unblocked_locations, generate_device_id, set_mode, get_tag_id, \
-    is_inhibited
-from schema import LocationSchema, LocationListSchema, TagSchema, RegistrationSchema, UpdateSchema
+from db import store_location_log, register_tag, get_last_unblocked_locations, generate_device_id, set_mode, \
+    get_tag_id, is_inhibited
+from schema import LocationListSchema, RegistrationSchema, UpdateSchema
 from flask import Flask, jsonify, request
 from marshmallow import ValidationError
 
@@ -11,7 +11,7 @@ app = Flask(__name__)
 def find_recent_locations():
     # gets most recent unblocked location
     # of every tag registered to device
-    # returns -1/error, message/no locations, results/allentries
+    # returns -1/error, message/no locations, results/all entries
     if not request.is_json:
         return jsonify({"msg": "Missing JSON in request"}), 400
     result = get_last_unblocked_locations(request.json.get('device_id'))
@@ -85,4 +85,4 @@ def set_tag_mode():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', ssl_context=('cert.pem', 'key.pem'))
+    app.run(debug=False, host='0.0.0.0', ssl_context=('cert.pem', 'key.pem'))
