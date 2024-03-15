@@ -10,21 +10,21 @@ CREATE TABLE Tag (
 );
 
 CREATE TABLE Device (
-    DeviceID BINARY(16)  NOT NULL,
+    DeviceID int  NOT NULL AUTO_INCREMENT,
     PRIMARY KEY (DeviceID)
 );
 
 CREATE TABLE LocationHistory (
+    Time datetime  NOT NULL,
     TagID int  NOT NULL,
-    Time datetime NOT NULL,
     Distance double  NOT NULL,
     DevicePosition point  NOT NULL,
-    LogID BINARY(8)  NOT NULL,
-    PRIMARY KEY (LogID,TagID)
+    Blocked bool  NOT NULL,
+    PRIMARY KEY (Time,TagID)
 );
 
 CREATE TABLE Registration (
-    DeviceID BINARY(16)  NOT NULL,
+    DeviceID int  NOT NULL,
     Mode int  NOT NULL,
     TagID int  NOT NULL,
     PRIMARY KEY (TagID),

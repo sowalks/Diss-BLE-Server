@@ -1,12 +1,17 @@
-from db import store_location_log, register_tag, get_last_unblocked_locations, generate_device_id, set_mode, \
-    get_tag_id, is_inhibited
+from db.db_ids import get_tag_id, generate_device_id, SnowflakeIDGenerator
+from db.db_log import store_location_log
+from db.db_owned_locations import get_last_unblocked_locations
+from db.db_update import register_tag, set_mode
 from schema import LocationListSchema, RegistrationSchema, UpdateSchema
 from flask import Flask, jsonify, request
 from marshmallow import ValidationError
 
 app = Flask(__name__)
+# individual for workers
+id_gen = SnowflakeIDGenerator()
 
 
+# TODO TURN TO GET FOR REST
 @app.route('/locations', methods=['POST'])
 def find_recent_locations():
     # gets most recent unblocked location
@@ -17,7 +22,7 @@ def find_recent_locations():
     result = get_last_unblocked_locations(request.json.get('device_id'))
     if result == -1:
         app.logger.error("locating error")
-        return jsonify({"msg": "Database Error for Locating Tags"}), 400
+        return jsonify({"msg": "Database Error for Locating Tags"}), 500
     if result == 'No Recent Locations':
         app.logger.info(result)
         return jsonify({"entries": []})
@@ -38,13 +43,10 @@ def store_log():
     except ValidationError as err:
         app.logger.error("Store Log ValidationError:" + str(err))
         return jsonify({"msg": str(err)}), 400
-
+    log_id = id_gen.generate_log_id(log['entries'][0]['time'].timestamp())
     tag_ids = [get_tag_id(entry['tag']) for entry in log['entries']]
-    blocked = is_inhibited(tag_ids)
-    if blocked == -1:
-        return jsonify({"msg": "Error detecting inhibited"}), 400
-    results = [store_location_log(entry, blocked, tag_id) for entry, tag_id in zip(log['entries'], tag_ids)]
-    app.logger.info("Successful Log: length " + str(len(results)) + " Blocked : " + str(blocked))
+    results = [store_location_log(entry, log_id, tag_id) for entry, tag_id in zip(log['entries'], tag_ids)]
+    app.logger.info("Successful Log: length " + str(len(results)))
     return jsonify(status=results)
 
 
@@ -62,12 +64,15 @@ def register():
         return jsonify(status=register_tag(r))
 
 
+# TODO TURN POST REST
 @app.route('/device')
 def get_device_id():
     # generate device id to be able to register & locate
     # tags. This is not the focus of the project, it is a placeholder
     # for a general secure login or identifying a device.
     device_id = generate_device_id()
+    if device_id == -1:
+        return jsonify({"msg": "Could not Generate DeviceID"}), 500
     return jsonify(device_id=device_id)
 
 
