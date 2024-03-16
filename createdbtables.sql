@@ -32,3 +32,10 @@ CREATE TABLE Registration (
      FOREIGN KEY (DeviceID) REFERENCES Device(DeviceID)
 );
 
+CREATE VIEW AllBlocked AS 
+SELECT blocked.LogID, alltag.TagID FROM LocationHistory alltag
+INNER JOIN LocationHistory blocked ON alltag.LogID = blocked.LogID
+INNER JOIN Registration r ON r.TagID = blocked.TagID
+WHERE r.Mode = 0;
+SELECT * FROM ALLBlocked;
+

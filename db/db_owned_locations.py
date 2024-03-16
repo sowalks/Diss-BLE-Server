@@ -33,12 +33,40 @@ log = logging.getLogger('database')
 
 # select from
 'SELECT Time, MAX(LogID), TagID, Distance, ST_X(DevicePosition), ST_Y(DevicePosition) FROM LocationHistory '
-                'WHERE ST_X(DevicePosition)NOT EXISTS (SELECT 1 FROM LocationHistory INNER JOIN Registration ON LocationHistory.TagID = Registration.TagID '
- 'WHERE mode = 0 AND LogID = logid ) AND'
+'WHERE DevicePosition != Point(-200,-200) AND '
+''
+ 'NOT EXISTS (SELECT LocationHistory.LogID FROM LocationHistory INNER JOIN Registration '
+ 'ON LocationHistory.TagID = Registration.TagID WHERE mode = 0) GROUP BY LOGID'
+
+
+
 
 # find most recent valid (not (-200,-200))
 # unblocked which does not have a log id that is masked by blocked
 # i.e. there does not exist a blocked log id which is in unblocked logid +/- BLOCK_TIME_MS << 22
+
+# logid of the tagid that is owned and blocked - if a tagid is not blocked we still need owned tags separetl
+
+# Get unblocked owned tags
+('SELECT Time, lh.LogID, lh.TagID, Distance, DevicePosition FROM '
+ 'LocationHistory lh INNER JOIN Registration r ON r.TagID = lh.TagID'
+ 'WHERE r.DeviceID = %s AND DevicePosition != Point(-200,-200) AND NOT EXISTS('
+ 'SELECT AllBlocked.LogID FROM AllBlocked WHERE AllBlocked.LogID = lh.LogID) ')
+
+
+# Get Owned Blocked
+('SELECT AllBlocked.LogID, AllBlocked.TagID FROM '
+ 'AllBlocked INNER JOIN Registration r ON r.TagID = lh.TagID'
+ 'WHERE r.DeviceID = %s AND DevicePosition != Point(-200,-200) AND NOT EXISTS('
+ 'SELECT AllBlocked.LogID FROM AllBlocked WHERE AllBlocked.LogID = lh.LogID) ')
+
+
+('SELECT MAX(UB.LogID) Time, UB.TagID, Distance, ST_X(DevicePosition), ST_Y(DevicePosition) '
+ 'FROM AllBlocked INNER JOIN Registration r ON r.TagID = B.TagID '
+ 'RIGHT JOIN LocationHistory lh ON r.TagID = lh.TagID ' # right join to keep unblocked owned tags
+ 'WHERE r.DeviceID = %s AND DevicePosition != Point(-200,-200) AND' # get owned and valid unblocked locations (allblocked does not need valid loc)
+ 'AND AllBlocked.LogID is NULL AND ' #Removes Blocked LogIDs
+ 'NOT EXISTS (SELECT LogID FROM AllBlocked WHERE lh.LogID + %s <= AllBlocked.LogID OR lh.LogID - %s >=  AllBlocked.LogID )')
 
 
 def get_last_unblocked_locations(device_id):
