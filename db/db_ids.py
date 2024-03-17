@@ -6,7 +6,7 @@ import logging
 import uuid
 from struct import pack
 
-from connections import open_connection
+from db.connections import open_connection
 
 log = logging.getLogger('db ids')
 
@@ -29,11 +29,7 @@ class SnowflakeIDGenerator:
         else:
             self.last_timestamp = ts
             self.seq = 0
-        return (self.last_timestamp << 22 | self.machine << 12 | self.seq).to_bytes()
-
-
-def time_from_id(id):
-    datetime.datetime.fromtimestamp(timestamp=id >> 22)
+        return (self.last_timestamp << 22 | self.machine << 12 | self.seq).to_bytes(8)
 
 
 def generate_device_id():
@@ -41,7 +37,7 @@ def generate_device_id():
     with conn.cursor() as cursor:
         try:
             device_id = uuid.uuid4()
-            cursor.execute('INSERT INTO Device (DeviceID) VALUES (%s);', (device_id,))
+            cursor.execute('INSERT INTO Device (DeviceID) VALUES (%s);', (device_id.bytes,))
             conn.commit()
         except pymysql.Error as e:
             log.error("Error Generating Device ID: " + str(e))
@@ -66,8 +62,8 @@ def generate_tag_id(tag):
         try:
             cursor.execute('INSERT INTO Tag (UUID, Major, Minor) VALUES(%s, %s, %s)',
                            (tag["uuid"].bytes,
-                            to_bytes(tag["major"]),
-                            to_bytes(tag["minor"])))
+                            tag["major"].to_bytes(2),
+                            tag["minor"].to_bytes(2)))
             conn.commit()
             tag_id = cursor.lastrowid
             log.error("tagid generated: " + str(tag_id))
@@ -84,8 +80,8 @@ def existing_tag_id(tag):
     with conn.cursor() as cursor:
         try:
             result = cursor.execute('SELECT TagID FROM Tag WHERE UUID = %s AND Major = %s  AND Minor = %s ;',
-                                    (tag['uuid'].bytes, to_bytes(tag["major"]),
-                                     to_bytes(tag["minor"])))
+                                    (tag['uuid'].bytes, tag["major"].to_bytes(2),
+                                    tag["minor"].to_bytes(2)))
             if result > 0:
                 tag_id = cursor.fetchone()[0]
             else:
@@ -98,5 +94,4 @@ def existing_tag_id(tag):
     return tag_id
 
 
-def to_bytes(field):
-    return pack('H', field)
+

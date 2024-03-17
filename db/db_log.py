@@ -1,6 +1,6 @@
 import pymysql
 import logging
-from connections import open_connection
+from db.connections import open_connection
 
 log = logging.getLogger('db log')
 

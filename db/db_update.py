@@ -1,7 +1,7 @@
 import pymysql
 import logging
-from connections import open_connection
-from db.db_ids import get_tag_id, to_bytes
+from db.connections import open_connection
+from db.db_ids import get_tag_id
 
 log = logging.getLogger('db update')
 
@@ -12,7 +12,7 @@ def register_tag(reg):
         try:
             tid = get_tag_id(reg['tag'])
             cursor.execute('INSERT INTO Registration(TagID,DeviceID,Mode) VALUES(%s, %s, %s)',
-                           (tid, to_bytes(reg['device_id']), reg['mode']))
+                           (tid, reg['device_id'].bytes, reg['mode']))
             conn.commit()
             log.info("Tag Registered - id:" + str(tid))
         except pymysql.IntegrityError as i:
@@ -36,13 +36,13 @@ def set_mode(update):
     with conn.cursor() as cursor:
         try:
             result = cursor.execute('UPDATE Registration SET Mode = %s WHERE TagID = %s AND DeviceID = %s ',
-                                    (update['mode'], update['tag_id'], to_bytes(update['device_id'])))
+                                    (update['mode'], update['tag_id'], update['device_id'].bytes))
             conn.commit()
             # result returns rows affected.
             # check if valid to same mode, or invalid ids
             if result == 0:
                 cursor.execute('SELECT COUNT(*) FROM Registration WHERE TagID = %s AND DeviceID = %s',
-                               (update['tag_id'], to_bytes(update['device_id'])))
+                               (update['tag_id'], update['device_id'].bytes))
                 not_valid = cursor.fetchone()[0]
                 if not_valid == 0:
                     log.error("Incorrect IDs")
