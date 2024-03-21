@@ -1,11 +1,11 @@
 # db.py
-from struct import pack
 
 import pymysql
 from connections import open_connection
 import logging
 
 log = logging.getLogger('database')
+BLOCKED_TIME_SEC = 30
 
 
 def get_tag_id(tag):
@@ -13,10 +13,6 @@ def get_tag_id(tag):
     if tid is None:
         tid = generate_tag_id(tag)
     return tid
-
-
-def to_bytes(field):
-    return pack('H', field)
 
 
 def generate_device_id():
@@ -45,8 +41,8 @@ def generate_tag_id(tag):
         try:
             cursor.execute('INSERT INTO Tag (UUID, Major, Minor) VALUES(%s, %s, %s)',
                            (tag["uuid"].bytes,
-                            to_bytes(tag["major"]),
-                            to_bytes(tag["minor"])))
+                            tag["major"].to_bytes(2),
+                            tag["minor"].to_bytes(2)))
             conn.commit()
             tag_id = cursor.lastrowid
             log.error("tagid generated: " + str(tag_id))
@@ -65,9 +61,13 @@ def get_last_unblocked_locations(device_id):
         try:
             result = cursor.execute(
                 'SELECT  Time, TagID, Distance, ST_X(DevicePosition), ST_Y(DevicePosition) FROM LocationHistory WHERE '
-                '(Time, TagID) in (SELECT  Max(LocationHistory.Time), LocationHistory.TagID FROM LocationHistory '
-                'INNER JOIN Registration ON LocationHistory.TagID = Registration.TagID WHERE DeviceID = %s AND Blocked '
-                '= 0 GROUP BY TagID);', (device_id,))
+                '(Time, TagID) in (SELECT  Max(lh.Time), lh.TagID FROM LocationHistory lh'
+                'INNER JOIN Registration ON lh.TagID = Registration.TagID WHERE DeviceID = %s AND Blocked '
+                '= 0 AND DevicePosition != Point(-200,-200) AND '
+                'NOT EXISTS (SELECT b.Time FROM LocationHistory b WHERE lh.TagID = b.TagID '
+                'AND b.Blocked = 1 AND DATE_ADD(lh.Time, INTERVAL %s SECOND) >= b.Time '
+                'AND DATE_ADD(lh.Time, INTERVAL %s SECOND) <=  b.Time GROUP BY TagID);',
+                (device_id, BLOCKED_TIME_SEC, -BLOCKED_TIME_SEC))
             recent = cursor.fetchall()
             if result > 0:
                 locations = []
@@ -90,8 +90,8 @@ def existing_tag_id(tag):
     with conn.cursor() as cursor:
         try:
             result = cursor.execute('SELECT TagID FROM Tag WHERE UUID = %s AND Major = %s  AND Minor = %s ;',
-                                    (tag['uuid'].bytes, to_bytes(tag["major"]),
-                                     to_bytes(tag["minor"])))
+                                    (tag['uuid'].bytes, tag["major"].to_bytes(2),
+                                     tag["minor"].to_bytes(2)))
             if result > 0:
                 tag_id = cursor.fetchone()[0]
             else:
