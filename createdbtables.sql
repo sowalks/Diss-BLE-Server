@@ -20,7 +20,7 @@ CREATE TABLE LocationHistory (
     Distance double  NOT NULL,
     DevicePosition point  NOT NULL,
     LogID BINARY(8)  NOT NULL,
-    PRIMARY KEY (LogID,TagID)
+    PRIMARY KEY (LogID,TagID,Time)
 );
 
 CREATE TABLE Registration (

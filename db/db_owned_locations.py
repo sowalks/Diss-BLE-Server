@@ -16,9 +16,9 @@ def get_last_unblocked_locations(device_id):
     with conn.cursor() as cursor:
         try:
             result = cursor.execute(  # AllBlocked is a view of all blocked tagid and logids
-                'SELECT Time, o.TagID, Distance, ST_X(DevicePosition), ST_Y(DevicePosition) FROM '
+                'SELECT o.Time, o.TagID, Distance, ST_X(DevicePosition), ST_Y(DevicePosition) FROM '
                 'LocationHistory INNER JOIN '  # outer request for non aggregated fields when finding most recent
-                '(SELECT MAX(lh.LogID) AS LogID, lh.TagID FROM '  # find most recent logid for owned tagid
+                '(SELECT MAX(lh.LogID) AS LogID, lh.TagID, MAX(lh.Time) as Time FROM '  # find most recent logid for owned tagid
                 'LocationHistory lh INNER JOIN Registration r ON r.TagID = lh.TagID'  # check registration for ownership
                 ' WHERE r.DeviceID = %s AND DevicePosition != Point(-200,-200) AND '  # position needs to be valid 
                 'NOT EXISTS (SELECT LogID FROM AllBlocked b WHERE lh.TagID = b.TagID '  # check tag is not blocked in

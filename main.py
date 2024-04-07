@@ -11,7 +11,6 @@ app = Flask(__name__)
 id_gen = SnowflakeIDGenerator()
 
 
-# TODO TURN TO GET FOR REST
 @app.route('/locations', methods=['POST'])
 def find_recent_locations():
     # gets most recent unblocked location
@@ -44,8 +43,15 @@ def store_log():
         app.logger.error("Store Log ValidationError:" + str(err))
         return jsonify({"msg": str(err)}), 400
     log_id = id_gen.generate_log_id(log['entries'][0]['time'].timestamp())
-    tag_ids = [get_tag_id(entry['tag']) for entry in log['entries']]
-    results = [store_location_log(entry, log_id, tag_id) for entry, tag_id in zip(log['entries'], tag_ids)]
+    tag_ids = []
+    entries = []
+    #ensure only earliest entry for the same time in log is kepy
+    for entry in log['entries']:
+        tid = get_tag_id(entry['tag'])
+        if not tid in tag_ids:
+            tag_ids.append(tid)
+            entries.append(entry)
+    results = [store_location_log(entry, log_id, tag_id) for entry, tag_id in zip(entries, tag_ids)]
     app.logger.info("Successful Log: length " + str(len(results)))
     return jsonify(status=results)
 
@@ -53,19 +59,17 @@ def store_log():
 @app.route('/registration', methods=['POST'])
 # register a tag to a device, so it can be located by them
 def register():
-    if request.method == 'POST':
-        if not request.is_json:
-            return jsonify({"msg": "Missing JSON in request"}), 400
-        try:
-            r = RegistrationSchema().load(request.json)
-        except ValidationError as err:
-            return str(err), 400
-        # return status error, already registered or tag_id
-        return jsonify(status=register_tag(r))
+    if not request.is_json:
+        return jsonify({"msg": "Missing JSON in request"}), 400
+    try:
+        r = RegistrationSchema().load(request.json)
+    except ValidationError as err:
+        return str(err), 400
+    # return status error, already registered or tag_id
+    return jsonify(status=register_tag(r))
 
 
-# TODO TURN POST REST
-@app.route('/device')
+@app.route('/device',methods=["POST"])
 def get_device_id():
     # generate device id to be able to register & locate
     # tags. This is not the focus of the project, it is a placeholder
