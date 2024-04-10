@@ -16,15 +16,20 @@ def get_last_unblocked_locations(device_id):
     with conn.cursor() as cursor:
         try:
             result = cursor.execute(  # AllBlocked is a view of all blocked tagid and logids
-                'SELECT o.Time, o.TagID, Distance, ST_X(DevicePosition), ST_Y(DevicePosition) FROM '
-                'LocationHistory INNER JOIN '  # outer request for non aggregated fields when finding most recent
-                '(SELECT MAX(lh.LogID) AS LogID, lh.TagID, MAX(lh.Time) as Time FROM '  # find most recent logid for owned tagid
-                'LocationHistory lh INNER JOIN Registration r ON r.TagID = lh.TagID'  # check registration for ownership
-                ' WHERE r.DeviceID = %s AND DevicePosition != Point(-200,-200) AND '  # position needs to be valid 
-                'NOT EXISTS (SELECT LogID FROM AllBlocked b WHERE lh.TagID = b.TagID '  # check tag is not blocked in
-                'AND (lh.LogID + %s) >= b.LogID AND (lh.LogID - %s <=  b.LogID)) '  # time range 
-                'GROUP BY lh.TagID) o ON o.TagID=LocationHistory.TagID WHERE o.LogID = LocationHistory.LogID; ',
-                (uuid.UUID(device_id).bytes, BLOCK_TIME, BLOCK_TIME))
+                'SELECT LocationHistory.Time, LocationHistory.TagID, LocationHistory.Distance, ST_X(LocationHistory.DevicePosition), ST_Y(LocationHistory.DevicePosition) '
+                'FROM LocationHistory INNER JOIN '
+                '(SELECT Max(LocationHistory.LogID) AS idlogs, LocationHistory.TagID AS idtags, LocationHistory.Time AS newtime ' #most recent log 
+                'FROM locationhistory  INNER JOIN Registration ON Registration.TagID = LocationHistory.TagID WHERE'
+                ' registration.DeviceID =  UUID_TO_BIN(%s) AND DevicePosition != Point(-200,-200)'
+                ' AND LocationHistory.LogID NOT IN '
+                '(SELECT AllBlocked.LogID from AllBlocked INNER JOIN LocationHistory'
+                ' on  locationHistory.tagid = Allblocked.tagid'
+                ' where AllBlocked.LogID = locationhistory.LogID  '
+                'AND (LocationHistory.LogID + %s) >= AllBlocked.LogID '
+                'AND (LocationHistory.LogID - %s) <=  AllBlocked.LogID)'
+                '  GROUP BY LocationHistory.TagID, LocationHistory.Time ORDER BY Time Desc LIMIT 1) o ' # most recent time if multiple in logid
+                'ON idtags =LocationHistory.TagID WHERE idlogs = LocationHistory.LogID;',
+                (device_id, BLOCK_TIME, BLOCK_TIME))
             recent = cursor.fetchall()
             if result > 0:
                 locations = []
