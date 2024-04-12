@@ -11,7 +11,7 @@ def store_location_log(entry, log_id, tag_id):
         try:
             cursor.execute(
                 'INSERT INTO LocationHistory (TagID,Time,Distance,DevicePosition,LogID) VALUES(%s, %s, %s, '
-                'Point(%s,%s), %s)',
+                'Point(%s,%s), %s)', # returns bigint for logid
                 (tag_id, entry["time"], entry["distance"], entry["device_position"]["longitude"],
                  entry["device_position"]["latitude"], log_id))
             conn.commit()

@@ -29,7 +29,7 @@ class SnowflakeIDGenerator:
         else:
             self.last_timestamp = ts
             self.seq = 0
-        return (self.last_timestamp << 22 | self.machine << 12 | self.seq).to_bytes(8)
+        return self.last_timestamp << 22 | self.machine << 12 | self.seq
 
 
 def generate_device_id():

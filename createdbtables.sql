@@ -19,7 +19,7 @@ CREATE TABLE LocationHistory (
     Time datetime NOT NULL,
     Distance double  NOT NULL,
     DevicePosition point  NOT NULL,
-    LogID BINARY(8)  NOT NULL,
+    LogID BIGINT  NOT NULL,
     PRIMARY KEY (LogID,TagID,Time)
 );
 

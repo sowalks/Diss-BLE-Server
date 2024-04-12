@@ -41,6 +41,7 @@ def store_log():
         log = LocationListSchema(exclude=('entries.tag_id',)).load(request.json)
     except ValidationError as err:
         app.logger.error("Store Log ValidationError:" + str(err))
+        app.logger.error(str(request.json))
         return jsonify({"msg": str(err)}), 400
     log_id = id_gen.generate_log_id(log['entries'][0]['time'].timestamp())
     tag_ids = []

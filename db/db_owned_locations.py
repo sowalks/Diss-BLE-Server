@@ -4,9 +4,8 @@ import pymysql
 from db.connections import open_connection
 import logging
 
-
-# +/- time to keep blocked in log format log
-BLOCK_TIME = 30000 << 22
+# time to keep a tag blocked after seen in a blocked log (ms)
+BLOCK_TIME = 30000
 log = logging.getLogger('database')
 
 
@@ -16,20 +15,21 @@ def get_last_unblocked_locations(device_id):
     with conn.cursor() as cursor:
         try:
             result = cursor.execute(  # AllBlocked is a view of all blocked tagid and logids
-                'SELECT LocationHistory.Time, LocationHistory.TagID, LocationHistory.Distance, ST_X(LocationHistory.DevicePosition), ST_Y(LocationHistory.DevicePosition) '
+                'SELECT LocationHistory.Time, LocationHistory.TagID, LocationHistory.Distance, '
+                'ST_X(LocationHistory.DevicePosition), ST_Y(LocationHistory.DevicePosition) '
                 'FROM LocationHistory INNER JOIN '
-                '(SELECT Max(LocationHistory.LogID) AS idlogs, LocationHistory.TagID AS idtags, LocationHistory.Time AS newtime ' #most recent log 
+                '(SELECT Max(LocationHistory.LogID) AS idlogs, LocationHistory.TagID AS idtags '  # most recent log 
                 'FROM locationhistory  INNER JOIN Registration ON Registration.TagID = LocationHistory.TagID WHERE'
                 ' registration.DeviceID =  UUID_TO_BIN(%s) AND DevicePosition != Point(-200,-200)'
-                ' AND LocationHistory.LogID NOT IN '
-                '(SELECT AllBlocked.LogID from AllBlocked INNER JOIN LocationHistory'
-                ' on  locationHistory.tagid = Allblocked.tagid'
-                ' where AllBlocked.LogID = locationhistory.LogID  '
-                'AND (LocationHistory.LogID + %s) >= AllBlocked.LogID '
-                'AND (LocationHistory.LogID - %s) <=  AllBlocked.LogID)'
-                '  GROUP BY LocationHistory.TagID, LocationHistory.Time ORDER BY Time Desc LIMIT 1) o ' # most recent time if multiple in logid
+                ' AND LocationHistory.LogID NOT IN '  # logid cannot be in blocked/ within BLOCKTIME
+                '(SELECT locationhistory.logid FROM '
+                'AllBlocked INNER JOIN LocationHistory'
+                'ON LocationHistory.tagid = AllBlocked.tagid'
+                # Compare IDs- shift 22 to get timestamp, find diff and compare with blocktime
+                'WHERE ABS(CAST(locationHistory.logid>>22 AS SIGNED)-CAST(allblocked.logid>>22 AS SIGNED)) < %s)'
+                'GROUP BY LocationHistory.TagID) o'  # CAST is required for accurate bitshift to compare IDs
                 'ON idtags =LocationHistory.TagID WHERE idlogs = LocationHistory.LogID;',
-                (device_id, BLOCK_TIME, BLOCK_TIME))
+                (device_id, BLOCK_TIME))
             recent = cursor.fetchall()
             if result > 0:
                 locations = []
