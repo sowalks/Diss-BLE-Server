@@ -31,23 +31,22 @@ def register_tag(reg):
     return tid
 
 
-def set_mode(update):
+def set_mode(tag_id, update):
     conn = open_connection()
     with conn.cursor() as cursor:
         try:
             result = cursor.execute('UPDATE Registration SET Mode = %s WHERE TagID = %s AND DeviceID = %s ',
-                                    (update['mode'], update['tag_id'], update['device_id'].bytes))
+                                    (update['mode'], tag_id, update['device_id'].bytes))
             conn.commit()
             # result returns rows affected.
             # check if valid to same mode, or invalid ids
             if result == 0:
                 cursor.execute('SELECT COUNT(*) FROM Registration WHERE TagID = %s AND DeviceID = %s',
-                               (update['tag_id'], update['device_id'].bytes))
+                               (tag_id, update['device_id'].bytes))
                 not_valid = cursor.fetchone()[0]
                 if not_valid == 0:
                     log.error("Incorrect IDs")
                     return -1
-                log.info("Duplicate Set Mode")
         except pymysql.Error as e:
             log.error("Set Mode Error: " + str(e))
             return -1

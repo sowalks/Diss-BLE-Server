@@ -1,5 +1,3 @@
-import datetime as dt
-import struct
 
 from marshmallow import Schema, fields, validate
 
@@ -35,6 +33,5 @@ class RegistrationSchema(Schema):
 
 
 class UpdateSchema(Schema):
-    tag_id = fields.Int(required=True)
     device_id = fields.UUID(required=True)
     mode = fields.Bool(truthy={True}, falsy={False}, required=True)

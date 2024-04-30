@@ -1,11 +1,6 @@
 import logging
-import os
 import pymysql
 
-db_user = os.environ.get('MYSQL_USERNAME')
-db_password = os.environ.get('MYSQL_PASSWORD')
-db_name = os.environ.get('MYSQL_DATABASE_NAME')
-db_connection_name = os.environ.get('MYSQL_CONNECTION_NAME')
 log = logging.Logger("Database Connection")
 def open_connection():
     try:

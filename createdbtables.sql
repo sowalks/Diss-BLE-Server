@@ -1,5 +1,8 @@
 USE Tag_Tracking;
 
+
+-- For 3NF, while all 3 iBeacon fields have to be a unique combinaiton,
+-- each field is only dependent on the TagID.
 CREATE TABLE Tag (
     UUID BINARY(16)  NOT NULL,
     Major BINARY(2)  NOT NULL,
@@ -14,6 +17,11 @@ CREATE TABLE Device (
     PRIMARY KEY (DeviceID)
 );
 
+--DevicePosition, although seemingly only depends on logID and time,
+--Would depend on tagID when using standard encryption for tracking tags.
+--To be extensible to this, it is useful to assume  deviceposition also depends on tagID.
+-- This additionally solves if a log marks two entries at the same time but at different positions,
+-- If device location was updated in between adding each entry to the log.
 CREATE TABLE LocationHistory (
     TagID int  NOT NULL,
     Time datetime NOT NULL,

@@ -1,3 +1,5 @@
+import uuid
+
 from db.db_ids import get_tag_id, generate_device_id, SnowflakeIDGenerator
 from db.db_log import store_location_log
 from db.db_owned_locations import get_last_unblocked_locations
@@ -11,14 +13,12 @@ app = Flask(__name__)
 id_gen = SnowflakeIDGenerator()
 
 
-@app.route('/locations', methods=['POST'])
-def find_recent_locations():
+@app.route('/locations/<device_id>', methods=['GET'])
+def find_recent_locations(device_id=uuid.uuid4()):
     # gets most recent unblocked location
     # of every tag registered to device
     # returns -1/error, message/no locations, results/all entries
-    if not request.is_json:
-        return jsonify({"msg": "Missing JSON in request"}), 400
-    result = get_last_unblocked_locations(request.json.get('device_id'))
+    result = get_last_unblocked_locations(device_id)
     if result == -1:
         app.logger.error("locating error")
         return jsonify({"msg": "Database Error for Locating Tags"}), 500
@@ -71,7 +71,7 @@ def register():
 
 
 @app.route('/device',methods=["POST"])
-def get_device_id():
+def gen_device_id():
     # generate device id to be able to register & locate
     # tags. This is not the focus of the project, it is a placeholder
     # for a general secure login or identifying a device.
@@ -81,8 +81,8 @@ def get_device_id():
     return jsonify(device_id=device_id)
 
 
-@app.route('/set-mode', methods=['PUT'])
-def set_tag_mode():
+@app.route('/mode/<tag_id>', methods=['PUT'])
+def set_tag_mode(tag_id=0):
     if request.method == 'PUT':
         if not request.is_json:
             return jsonify({"msg": "Missing JSON in request"}), 400
@@ -91,7 +91,7 @@ def set_tag_mode():
         except ValidationError as err:
             return str(err), 400
         # return status error or mode set /error(invalid uuids,server,etc)
-        return jsonify(status=set_mode(update))
+        return jsonify(status=set_mode(tag_id,update))
 
 
 if __name__ == '__main__':

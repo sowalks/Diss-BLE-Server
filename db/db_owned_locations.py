@@ -21,6 +21,8 @@ def get_last_unblocked_locations(device_id):
                 '(SELECT Max(LocationHistory.LogID) AS idlogs, LocationHistory.TagID AS idtags '  # most recent log 
                 'FROM locationhistory  INNER JOIN Registration ON Registration.TagID = LocationHistory.TagID WHERE'
                 ' registration.DeviceID =  UUID_TO_BIN(%s) AND DevicePosition != Point(-200,-200)'
+                'AND CAST(LocationHistory.logid>>22 AS SIGNED) < %s '  # only logs that could not still 
+                #  be blocked by a different tag
                 ' AND LocationHistory.LogID NOT IN '  # logid cannot be in blocked/ within BLOCKTIME
                 '(SELECT locationhistory.logid FROM '
                 'AllBlocked INNER JOIN LocationHistory'
