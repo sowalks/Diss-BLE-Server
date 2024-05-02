@@ -17,9 +17,9 @@ CREATE TABLE Device (
     PRIMARY KEY (DeviceID)
 );
 
---DevicePosition, although seemingly only depends on logID and time,
---Would depend on tagID when using standard encryption for tracking tags.
---To be extensible to this, it is useful to assume  deviceposition also depends on tagID.
+-- DevicePosition, although seemingly only depends on logID and time,
+-- Would depend on tagID when using standard encryption for tracking tags.
+-- To be extensible to this, it is useful to assume  deviceposition also depends on tagID.
 -- This additionally solves if a log marks two entries at the same time but at different positions,
 -- If device location was updated in between adding each entry to the log.
 CREATE TABLE LocationHistory (

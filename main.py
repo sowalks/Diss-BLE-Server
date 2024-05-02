@@ -1,23 +1,29 @@
-import uuid
+
 
 from db.db_ids import get_tag_id, generate_device_id, SnowflakeIDGenerator
 from db.db_log import store_location_log
 from db.db_owned_locations import get_last_unblocked_locations
 from db.db_update import register_tag, set_mode
-from schema import LocationListSchema, RegistrationSchema, UpdateSchema
+from schema import LocationListSchema, RegistrationSchema, UpdateSchema, DeviceIDSchema
 from flask import Flask, jsonify, request
 from marshmallow import ValidationError
+from datetime import datetime
+import pandas as pd #for evaluation
 
 app = Flask(__name__)
 # individual for workers
 id_gen = SnowflakeIDGenerator()
+occurrences_in_logs = []
 
-
-@app.route('/locations/<device_id>', methods=['GET'])
-def find_recent_locations(device_id=uuid.uuid4()):
+@app.route('/locations/<device_id_str>', methods=['GET'])
+def find_recent_locations(device_id_str):
     # gets most recent unblocked location
     # of every tag registered to device
     # returns -1/error, message/no locations, results/all entries
+    try:
+        device_id = DeviceIDSchema().load({"id": device_id_str})['id']
+    except ValidationError:
+        return jsonify({"msg": "Device Validation Error"}), 400
     result = get_last_unblocked_locations(device_id)
     if result == -1:
         app.logger.error("locating error")
@@ -43,15 +49,18 @@ def store_log():
         app.logger.error("Store Log ValidationError:" + str(err))
         app.logger.error(str(request.json))
         return jsonify({"msg": str(err)}), 400
-    log_id = id_gen.generate_log_id(log['entries'][0]['time'].timestamp())
-    tag_ids = []
+    log_id = id_gen.generate_log_id(datetime.now().timestamp())
+    tag_ids = dict()
     entries = []
-    #ensure only earliest entry for the same time in log is kepy
+    # ensure only latest entry for the same time in log is kepy
     for entry in log['entries']:
         tid = get_tag_id(entry['tag'])
-        if not tid in tag_ids:
-            tag_ids.append(tid)
+        if not str(tid) in tag_ids:
+            tag_ids[str(tid)] = 0
             entries.append(entry)
+        tag_ids[str(tid)] += 1
+    for tk in tag_ids:
+        occurrences_in_logs.append({'TagID': tk, 'Count': tag_ids[tk], 'LogID': log_id})
     results = [store_location_log(entry, log_id, tag_id) for entry, tag_id in zip(entries, tag_ids)]
     app.logger.info("Successful Log: length " + str(len(results)))
     return jsonify(status=results)
@@ -70,7 +79,7 @@ def register():
     return jsonify(status=register_tag(r))
 
 
-@app.route('/device',methods=["POST"])
+@app.route('/device', methods=["POST"])
 def gen_device_id():
     # generate device id to be able to register & locate
     # tags. This is not the focus of the project, it is a placeholder
@@ -91,8 +100,11 @@ def set_tag_mode(tag_id=0):
         except ValidationError as err:
             return str(err), 400
         # return status error or mode set /error(invalid uuids,server,etc)
-        return jsonify(status=set_mode(tag_id,update))
+        return jsonify(status=set_mode(tag_id, update))
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', ssl_context=('cert.pem', 'key.pem'))
+    try:
+        app.run(debug=False, host='0.0.0.0', ssl_context=('cert.pem', 'key.pem'))
+    finally:
+        pd.DataFrame(occurrences_in_logs).to_csv("occ.csv",index=False)

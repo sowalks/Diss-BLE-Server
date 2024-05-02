@@ -1,4 +1,3 @@
-
 from marshmallow import Schema, fields, validate
 
 
@@ -24,6 +23,10 @@ class LocationSchema(Schema):
 
 class LocationListSchema(Schema):
     entries = fields.List(fields.Nested(LocationSchema()), required=True)
+
+
+class DeviceIDSchema(Schema):
+    id = fields.UUID(required=True)
 
 
 class RegistrationSchema(Schema):

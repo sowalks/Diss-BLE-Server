@@ -1,4 +1,5 @@
-import uuid
+from datetime import datetime
+
 
 import pymysql
 from db.connections import open_connection
@@ -21,21 +22,22 @@ def get_last_unblocked_locations(device_id):
                 '(SELECT Max(LocationHistory.LogID) AS idlogs, LocationHistory.TagID AS idtags '  # most recent log 
                 'FROM locationhistory  INNER JOIN Registration ON Registration.TagID = LocationHistory.TagID WHERE'
                 ' registration.DeviceID =  UUID_TO_BIN(%s) AND DevicePosition != Point(-200,-200)'
-                'AND CAST(LocationHistory.logid>>22 AS SIGNED) < %s '  # only logs that could not still 
+                'AND CAST(LocationHistory.logid>>22 AS SIGNED) < UNIX_TIMESTAMP()*1000 - %s '  # only logs that could not still 
                 #  be blocked by a different tag
                 ' AND LocationHistory.LogID NOT IN '  # logid cannot be in blocked/ within BLOCKTIME
                 '(SELECT locationhistory.logid FROM '
-                'AllBlocked INNER JOIN LocationHistory'
-                'ON LocationHistory.tagid = AllBlocked.tagid'
-                # Compare IDs- shift 22 to get timestamp, find diff and compare with blocktime
-                'WHERE ABS(CAST(locationHistory.logid>>22 AS SIGNED)-CAST(allblocked.logid>>22 AS SIGNED)) < %s)'
-                'GROUP BY LocationHistory.TagID) o'  # CAST is required for accurate bitshift to compare IDs
+                'AllBlocked INNER JOIN LocationHistory '
+                'ON LocationHistory.tagid = AllBlocked.tagid '
+                # Compare IDs-shift 22 to get timestamp, find diff and compare with blocktime
+                'WHERE ABS(CAST(locationHistory.logid>>22 AS SIGNED)-CAST(allblocked.logid>>22 AS SIGNED)) < %s) '
+                'GROUP BY LocationHistory.TagID) o '  # CAST is required for accurate bitshift to compare IDs
                 'ON idtags =LocationHistory.TagID WHERE idlogs = LocationHistory.LogID;',
-                (device_id, BLOCK_TIME))
+                (device_id, BLOCK_TIME, BLOCK_TIME))
             recent = cursor.fetchall()
             if result > 0:
                 locations = []
                 for r in recent:
+                    log.error("[Privacy Bubble Failed]: at  " + str(r[0]) + " distance of " + str(r[2]))
                     locations.append({"time": r[0], "tag_id": r[1], "distance": r[2],
                                       "device_position": {"longitude": r[3], "latitude": r[4]}})
 
