@@ -22,7 +22,8 @@ def get_last_unblocked_locations(device_id):
                 '(SELECT Max(LocationHistory.LogID) AS idlogs, LocationHistory.TagID AS idtags '  # most recent log 
                 'FROM locationhistory  INNER JOIN Registration ON Registration.TagID = LocationHistory.TagID WHERE'
                 ' registration.DeviceID =  UUID_TO_BIN(%s) AND DevicePosition != Point(-200,-200)'
-                'AND CAST(LocationHistory.logid>>22 AS SIGNED) < UNIX_TIMESTAMP()*1000 - %s '  # only logs that could not still 
+                'AND CAST(LocationHistory.logid>>22 AS SIGNED) < UNIX_TIMESTAMP()*1000 - %s '
+                # only logs that could not still 
                 #  be blocked by a different tag
                 ' AND LocationHistory.LogID NOT IN '  # logid cannot be in blocked/ within BLOCKTIME
                 '(SELECT locationhistory.logid FROM '
@@ -37,7 +38,8 @@ def get_last_unblocked_locations(device_id):
             if result > 0:
                 locations = []
                 for r in recent:
-                    log.error("[Privacy Bubble Failed]: at  " + str(r[0]) + " distance of " + str(r[2]))
+                    if r[0].timestamp() > (datetime.now().timestamp() - 60):
+                        log.error("[Privacy Bubble Failed]: at  " + str(r[0]) + " distance of " + str(r[2]))
                     locations.append({"time": r[0], "tag_id": r[1], "distance": r[2],
                                       "device_position": {"longitude": r[3], "latitude": r[4]}})
 

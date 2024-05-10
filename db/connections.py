@@ -2,6 +2,8 @@ import logging
 import pymysql
 
 log = logging.Logger("Database Connection")
+
+
 def open_connection():
     try:
         conn = pymysql.connect(host='127.0.0.1', user='sw', password='RoI&Q/TYyic7ru$', db='tag_tracking',
@@ -9,6 +11,7 @@ def open_connection():
     except pymysql.MySQLError as e:
         log.error(e)
     return conn
+
 
 ''' 
 PRODUCTION OPEN CONNECTION:

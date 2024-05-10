@@ -8,12 +8,12 @@ from schema import LocationListSchema, RegistrationSchema, UpdateSchema, DeviceI
 from flask import Flask, jsonify, request
 from marshmallow import ValidationError
 from datetime import datetime
-import pandas as pd #for evaluation
+
 
 app = Flask(__name__)
 # individual for workers
 id_gen = SnowflakeIDGenerator()
-occurrences_in_logs = []
+
 
 @app.route('/locations/<device_id_str>', methods=['GET'])
 def find_recent_locations(device_id_str):
@@ -48,19 +48,17 @@ def store_log():
     except ValidationError as err:
         app.logger.error("Store Log ValidationError:" + str(err))
         app.logger.error(str(request.json))
-        return jsonify({"msg": str(err)}), 400
+        return jsonify({"msg": "Store Log ValidationError"}), 400
     log_id = id_gen.generate_log_id(datetime.now().timestamp())
     tag_ids = dict()
     entries = []
-    # ensure only latest entry for the same time in log is kepy
+    # ensure only latest entry for in one log is kept
     for entry in log['entries']:
         tid = get_tag_id(entry['tag'])
         if not str(tid) in tag_ids:
             tag_ids[str(tid)] = 0
             entries.append(entry)
         tag_ids[str(tid)] += 1
-    for tk in tag_ids:
-        occurrences_in_logs.append({'TagID': tk, 'Count': tag_ids[tk], 'LogID': log_id})
     results = [store_location_log(entry, log_id, tag_id) for entry, tag_id in zip(entries, tag_ids)]
     app.logger.info("Successful Log: length " + str(len(results)))
     return jsonify(status=results)
@@ -74,7 +72,7 @@ def register():
     try:
         r = RegistrationSchema().load(request.json)
     except ValidationError as err:
-        return str(err), 400
+        return jsonify({"msg":"Invalid JSON"}), 400
     # return status error, already registered or tag_id
     return jsonify(status=register_tag(r))
 
@@ -85,7 +83,7 @@ def gen_device_id():
     # tags. This is not the focus of the project, it is a placeholder
     # for a general secure login or identifying a device.
     device_id = generate_device_id()
-    if device_id == -1:
+    if device_id <= 0:
         return jsonify({"msg": "Could not Generate DeviceID"}), 500
     return jsonify(device_id=device_id)
 
@@ -98,13 +96,10 @@ def set_tag_mode(tag_id=0):
         try:
             update = UpdateSchema().load(request.json)
         except ValidationError as err:
-            return str(err), 400
+            return jsonify({"msg":"Invalid JSON"}), 400
         # return status error or mode set /error(invalid uuids,server,etc)
         return jsonify(status=set_mode(tag_id, update))
 
 
 if __name__ == '__main__':
-    try:
         app.run(debug=False, host='0.0.0.0', ssl_context=('cert.pem', 'key.pem'))
-    finally:
-        pd.DataFrame(occurrences_in_logs).to_csv("occ.csv",index=False)
